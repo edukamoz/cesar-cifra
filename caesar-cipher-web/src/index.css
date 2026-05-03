@@ -1,0 +1,48 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+/* ─── Global Styles ───────────────────────────────────────────────────── */
+@theme {
+  --font-sans: 'Inter', ui-sans-serif, system-ui, sans-serif;
+}
+
+html {
+  scroll-behavior: smooth;
+}
+
+body {
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* ─── Custom Animations ────────────────────────────────────────────────── */
+
+@keyframes slide-up {
+  0% { opacity: 0; transform: translateY(20px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes fade-in {
+  0% { opacity: 0; }
+  100% { opacity: 1; }
+}
+
+.animate-slide-up {
+  animation: slide-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) forwards;
+}
+
+.animate-fade-in {
+  animation: fade-in 0.3s ease-out forwards;
+}
+
+/* Stagger children animations */
+.stagger > * {
+  opacity: 0;
+}
+.stagger > *:nth-child(1) { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.05s forwards; }
+.stagger > *:nth-child(2) { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.1s forwards; }
+.stagger > *:nth-child(3) { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.15s forwards; }
+.stagger > *:nth-child(4) { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.2s forwards; }
+.stagger > *:nth-child(5) { animation: slide-up 0.4s cubic-bezier(0.16, 1, 0.3, 1) 0.25s forwards; }
