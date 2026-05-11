@@ -1,5 +1,5 @@
-import { Request } from 'express';
-import { Document, Types } from 'mongoose';
+import { Request } from "express";
+import { Document, Types } from "mongoose";
 
 // ─── User ────────────────────────────────────────────────────────────────────
 
@@ -20,6 +20,7 @@ export interface IUserDocument extends IUser, Document {
 export interface ICipher {
   hash: string;
   step: number;
+  messageHash?: string; // Opcional para compatibilidade com dados antigos
   used: boolean;
   userId: Types.ObjectId;
   expiresAt: Date;

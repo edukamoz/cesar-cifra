@@ -1,17 +1,22 @@
-import mongoose, { Schema } from 'mongoose';
-import { ICipherDocument } from '../types';
+import mongoose, { Schema } from "mongoose";
+import { ICipherDocument } from "../types";
 
 const CipherSchema = new Schema<ICipherDocument>(
   {
     hash: {
       type: String,
-      required: [true, 'Hash é obrigatório.'],
+      required: [true, "Hash é obrigatório."],
       unique: true,
       index: true,
     },
     step: {
       type: Number,
-      required: [true, 'Passo (step) é obrigatório.'],
+      required: [true, "Passo (step) é obrigatório."],
+    },
+    messageHash: {
+      type: String,
+      required: false, // Opcional para compatibilidade com dados antigos
+      index: false,
     },
     used: {
       type: Boolean,
@@ -19,8 +24,8 @@ const CipherSchema = new Schema<ICipherDocument>(
     },
     userId: {
       type: Schema.Types.ObjectId,
-      ref: 'User',
-      required: [true, 'userId é obrigatório.'],
+      ref: "User",
+      required: [true, "userId é obrigatório."],
       index: true,
     },
     expiresAt: {
@@ -32,7 +37,7 @@ const CipherSchema = new Schema<ICipherDocument>(
   {
     timestamps: true,
     versionKey: false,
-  }
+  },
 );
 
-export const Cipher = mongoose.model<ICipherDocument>('Cipher', CipherSchema);
+export const Cipher = mongoose.model<ICipherDocument>("Cipher", CipherSchema);

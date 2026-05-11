@@ -1,21 +1,21 @@
-import { Router, Response } from 'express';
-import crypto from 'crypto';
-import { body, validationResult } from 'express-validator';
-import { Cipher } from '../models/Cipher';
-import { authMiddleware } from '../middlewares/auth';
+import crypto from "crypto";
+import { Response, Router } from "express";
+import { body, validationResult } from "express-validator";
+import { authMiddleware } from "../middlewares/auth";
+import { Cipher } from "../models/Cipher";
 import {
-  encrypt as caesarEncrypt,
   decrypt as caesarDecrypt,
-} from '../services/caesarCipher';
+  encrypt as caesarEncrypt,
+} from "../services/caesarCipher";
 import {
-  AuthenticatedRequest,
-  EncryptRequestBody,
-  DecryptRequestBody,
   ApiResponse,
-  EncryptResponse,
+  AuthenticatedRequest,
+  DecryptRequestBody,
   DecryptResponse,
-  ICipherDocument
-} from '../types';
+  EncryptRequestBody,
+  EncryptResponse,
+  ICipherDocument,
+} from "../types";
 
 const router = Router();
 
@@ -62,14 +62,22 @@ router.use(authMiddleware);
  *         description: Não autorizado (Token ausente ou inválido).
  */
 router.post(
-  '/encrypt',
+  "/encrypt",
   [
-    body('message').trim().notEmpty().withMessage('A mensagem é obrigatória e não pode estar vazia.').escape(),
-    body('step').isInt().withMessage('O passo (step) é obrigatório e deve ser um número inteiro.'),
+    body("message")
+      .trim()
+      .notEmpty()
+      .withMessage("A mensagem é obrigatória e não pode estar vazia.")
+      .escape(),
+    body("step")
+      .isInt()
+      .withMessage(
+        "O passo (step) é obrigatório e deve ser um número inteiro.",
+      ),
   ],
   async (
     req: AuthenticatedRequest & { body: EncryptRequestBody },
-    res: Response<ApiResponse<EncryptResponse | null>>
+    res: Response<ApiResponse<EncryptResponse | null>>,
   ): Promise<void> => {
     try {
       const errors = validationResult(req);
@@ -85,8 +93,14 @@ router.post(
 
       const encryptedMessage = caesarEncrypt(message, step);
 
-      const hashInput = `${message}:${step}:${Date.now()}:${crypto.randomBytes(16).toString('hex')}`;
-      const hash = crypto.createHash('sha256').update(hashInput).digest('hex');
+      // Calcula o hash da mensagem original para validação posterior
+      const messageHash = crypto
+        .createHash("sha256")
+        .update(message)
+        .digest("hex");
+
+      const hashInput = `${message}:${step}:${Date.now()}:${crypto.randomBytes(16).toString("hex")}`;
+      const hash = crypto.createHash("sha256").update(hashInput).digest("hex");
 
       // Define expiração para 24h a partir de agora
       const expiresAt = new Date();
@@ -95,6 +109,7 @@ router.post(
       await Cipher.create({
         hash,
         step,
+        messageHash,
         used: false,
         userId: req.user!.userId,
         expiresAt,
@@ -102,20 +117,20 @@ router.post(
 
       res.status(201).json({
         success: true,
-        message: 'Mensagem cifrada com sucesso.',
+        message: "Mensagem cifrada com sucesso.",
         data: {
           hash,
           encryptedMessage,
         },
       });
     } catch (error) {
-      console.error('Erro ao cifrar:', error);
+      console.error("Erro ao cifrar:", error);
       res.status(500).json({
         success: false,
-        message: 'Erro interno ao cifrar a mensagem.',
+        message: "Erro interno ao cifrar a mensagem.",
       });
     }
-  }
+  },
 );
 
 /**
@@ -151,14 +166,22 @@ router.post(
  *         description: Hash não encontrado ou expirado.
  */
 router.post(
-  '/decrypt',
+  "/decrypt",
   [
-    body('encryptedMessage').trim().notEmpty().withMessage('A mensagem cifrada é obrigatória.').escape(),
-    body('hash').trim().notEmpty().withMessage('O hash é obrigatório.').escape(),
+    body("encryptedMessage")
+      .trim()
+      .notEmpty()
+      .withMessage("A mensagem cifrada é obrigatória.")
+      .escape(),
+    body("hash")
+      .trim()
+      .notEmpty()
+      .withMessage("O hash é obrigatório.")
+      .escape(),
   ],
   async (
     req: AuthenticatedRequest & { body: DecryptRequestBody },
-    res: Response<ApiResponse<DecryptResponse | null>>
+    res: Response<ApiResponse<DecryptResponse | null>>,
   ): Promise<void> => {
     try {
       const errors = validationResult(req);
@@ -177,7 +200,7 @@ router.post(
       if (!cipherRecord) {
         res.status(404).json({
           success: false,
-          message: 'Hash não encontrado ou já expirado. Chave inválida.',
+          message: "Hash não encontrado ou já expirado. Chave inválida.",
         });
         return;
       }
@@ -185,30 +208,50 @@ router.post(
       if (cipherRecord.used) {
         res.status(403).json({
           success: false,
-          message: 'Este hash já foi utilizado. Decifração negada.',
+          message: "Este hash já foi utilizado. Decifração negada.",
         });
         return;
       }
 
-      const originalMessage = caesarDecrypt(encryptedMessage, cipherRecord.step);
+      const originalMessage = caesarDecrypt(
+        encryptedMessage,
+        cipherRecord.step,
+      );
+
+      // Validação de integridade: verifica se a mensagem descriptografada corresponde ao original
+      // Se messageHash existe (dados novos), valida; se não existe (dados antigos), pula a validação
+      if (cipherRecord.messageHash) {
+        const computedHash = crypto
+          .createHash("sha256")
+          .update(originalMessage)
+          .digest("hex");
+        if (computedHash !== cipherRecord.messageHash) {
+          res.status(400).json({
+            success: false,
+            message:
+              "A mensagem descriptografada não corresponde à mensagem original. Verifique a mensagem cifrada e tente novamente.",
+          });
+          return;
+        }
+      }
 
       await Cipher.findByIdAndUpdate(cipherRecord._id, { used: true });
 
       res.status(200).json({
         success: true,
-        message: 'Mensagem decifrada com sucesso.',
+        message: "Mensagem decifrada com sucesso.",
         data: {
           originalMessage,
         },
       });
     } catch (error) {
-      console.error('Erro ao decifrar:', error);
+      console.error("Erro ao decifrar:", error);
       res.status(500).json({
         success: false,
-        message: 'Erro interno ao decifrar a mensagem.',
+        message: "Erro interno ao decifrar a mensagem.",
       });
     }
-  }
+  },
 );
 
 /**
@@ -226,28 +269,30 @@ router.post(
  *         description: Não autorizado.
  */
 router.get(
-  '/history',
+  "/history",
   async (
     req: AuthenticatedRequest,
-    res: Response<ApiResponse<ICipherDocument[]>>
+    res: Response<ApiResponse<ICipherDocument[]>>,
   ): Promise<void> => {
     try {
       // Busca os ciphers do usuário, ordenados do mais recente pro mais antigo
-      const history = await Cipher.find({ userId: req.user!.userId }).sort({ createdAt: -1 });
+      const history = await Cipher.find({ userId: req.user!.userId }).sort({
+        createdAt: -1,
+      });
 
       res.status(200).json({
         success: true,
-        message: 'Histórico recuperado com sucesso.',
+        message: "Histórico recuperado com sucesso.",
         data: history,
       });
     } catch (error) {
-      console.error('Erro ao buscar histórico:', error);
+      console.error("Erro ao buscar histórico:", error);
       res.status(500).json({
         success: false,
-        message: 'Erro interno ao buscar histórico.',
+        message: "Erro interno ao buscar histórico.",
       });
     }
-  }
+  },
 );
 
 export default router;
